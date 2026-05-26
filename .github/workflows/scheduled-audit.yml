@@ -1,0 +1,26 @@
+name: Scheduled Audit
+on:
+  schedule:
+    - cron: '0 */6 * * *' # every 6 hours
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install gitleaks
+        run: |
+          if ! command -v gitleaks >/dev/null 2>&1; then
+            curl -sSL https://raw.githubusercontent.com/zricethezav/gitleaks/main/install.sh | bash || true
+          fi
+      - name: Run secret scan
+        run: ./scripts/scan-repos-secrets.sh || true
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-reports
+          path: reports
+      - name: Notify Slack on findings
+        if: always()
+        run: |
+          echo "(placeholder) Implement Slack notify step using SLACK_WEBHOOK secret"
