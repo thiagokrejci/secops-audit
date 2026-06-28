@@ -1,9 +1,53 @@
-secops-audit
+<h1 align="center">🛡️ SecOps Audit</h1>
+<p align="center">Auditoria contínua de segurança em nuvem AWS — detecção de credenciais, validação de Terraform e hardening, via GitHub Actions.</p>
 
-Purpose: central repo of scripts and CI templates to continuously audit AWS infra, validate Terraform, detect credentials and standardize AWS profiles.
+<p align="center">
+  <img src="https://img.shields.io/badge/AWS-232F3E?style=flat&logo=amazonwebservices&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Terraform-7B42BC?style=flat&logo=terraform&logoColor=white"/>
+  <img src="https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat&logo=githubactions&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Shell-4EAA25?style=flat&logo=gnubash&logoColor=white"/>
+  <img src="https://img.shields.io/badge/DevSecOps-FF6B6B?style=flat"/>
+</p>
 
-Quickstart:
-- Copy this repo into your organization or use as template.
-- Install required tools: gitleaks, terraform, tflint, tfsec, checkov, rg (ripgrep), awscli.
-- Add secrets: SLACK_WEBHOOK, AWS_ROLE_TO_DISABLE (if auto-remediation used).
-- Enable scheduled workflows in .github/workflows.
+---
+
+## 📌 Visão geral
+
+Repositório central de **scripts e pipelines de CI** para auditar continuamente a infraestrutura AWS,
+validar código Terraform, detectar credenciais expostas e padronizar perfis AWS. Pensado para rodar
+de forma **automatizada e agendada**, aplicando práticas de **DevSecOps e shift-left security**.
+
+## ⚙️ Pipelines automatizados (GitHub Actions)
+
+| Workflow | Gatilho | O que faz |
+|----------|---------|-----------|
+| **AWS Credentials Monitor** | a cada hora | Monitora e detecta chaves de acesso AWS ativas/expostas |
+| **Scheduled Audit** | a cada 6 horas | Varredura de segredos nos repositórios (gitleaks) e relatórios |
+| **Terraform Validate** | em cada Pull Request `.tf` | Valida, lint e analisa segurança do IaC antes do merge |
+
+## 🔧 Scripts
+
+- **`detect-aws-credentials.sh`** — varre `~/.aws/credentials`, lista perfis e gera relatório JSON.
+- **`disable-access-key.sh`** — desativa uma chave de acesso AWS comprometida (remediação).
+- **`ensure-aws-config.sh`** — *pre-commit hook* que bloqueia commit com credenciais/arquivos sensíveis.
+- **`scan-repos-secrets.sh`** — detecção de segredos com **gitleaks**, com relatórios datados.
+- **`tf-validate-wrapper.sh`** — roda `terraform validate`, `tflint`, `tfsec` e `checkov` no IaC.
+
+## 🚀 Como usar
+
+```bash
+# 1. Use este repositório como template na sua organização
+# 2. Instale as ferramentas necessárias:
+#    gitleaks, terraform, tflint, tfsec, checkov, ripgrep (rg), awscli
+# 3. Configure os secrets no GitHub:
+#    SLACK_WEBHOOK, AWS_ROLE_TO_DISABLE (se usar auto-remediação)
+# 4. Ative os workflows agendados em .github/workflows
+```
+
+## 🧰 Stack de segurança
+
+`gitleaks` · `tfsec` · `checkov` · `tflint` · `terraform` · `awscli` · `ripgrep`
+
+---
+
+<p align="center"><sub>Autoria: Thiago Krejci — Engenheiro SRE / DevOps / Cloud</sub></p>
