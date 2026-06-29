@@ -7,7 +7,51 @@
   <img src="https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat&logo=githubactions&logoColor=white"/>
   <img src="https://img.shields.io/badge/Shell-4EAA25?style=flat&logo=gnubash&logoColor=white"/>
   <img src="https://img.shields.io/badge/DevSecOps-FF6B6B?style=flat"/>
+  <a href="https://github.com/marketplace/actions/secops-audit"><img src="https://img.shields.io/badge/GitHub_Marketplace-Action-2088FF?style=flat&logo=githubactions&logoColor=white"/></a>
 </p>
+
+---
+
+## ⚡ Use como GitHub Action
+
+Adicione o scan de segredos (gitleaks) e a validação de Terraform a **qualquer** pipeline em poucas linhas:
+
+```yaml
+# .github/workflows/security.yml
+name: Security
+on: [push, pull_request]
+
+jobs:
+  secops:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # gitleaks varre todo o histórico
+      - uses: thiagokrejci/secops-audit@v1
+        with:
+          scan-secrets: 'true'
+          terraform-dir: 'infra'  # opcional; vazio = pula Terraform
+          fail-on-findings: 'true'
+```
+
+### Inputs
+
+| Input | Default | Descrição |
+|-------|---------|-----------|
+| `scan-secrets` | `true` | Roda o gitleaks no repositório. |
+| `gitleaks-version` | `8.18.4` | Versão do gitleaks a instalar. |
+| `terraform-dir` | `''` | Pasta com código Terraform (`fmt`/`validate`/`tfsec`). Vazio = pula. |
+| `run-tfsec` | `true` | Roda análise estática tfsec no `terraform-dir`. |
+| `fail-on-findings` | `false` | Falha o job se houver segredo detectado. |
+
+### Outputs
+
+| Output | Descrição |
+|--------|-----------|
+| `secrets-found` | `true` se o gitleaks achou segredo. |
+| `secrets-count` | Quantidade de achados. |
+| `report-dir` | Pasta com os relatórios JSON (`secops-reports/`). |
 
 ---
 

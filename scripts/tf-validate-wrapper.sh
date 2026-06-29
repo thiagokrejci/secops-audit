@@ -10,7 +10,7 @@ fi
 
 terraform fmt -check -recursive || { echo "terraform fmt failed"; exit 2; }
 terraform init -backend=false || { echo "terraform init failed"; exit 3; }
-terraform validate ./... || { echo "terraform validate failed"; exit 4; }
+terraform validate || { echo "terraform validate failed"; exit 4; }
 
 # plan each module (best-effort)
 if terraform plan -no-color -out=tfplan 2>/dev/null; then

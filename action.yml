@@ -1,0 +1,111 @@
+name: 'SecOps Audit'
+description: 'Scan a repo for leaked secrets (gitleaks) and validate/secure Terraform (fmt, validate, tfsec) directly in CI.'
+author: 'Thiago Krejci'
+
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  scan-secrets:
+    description: 'Run gitleaks secret detection over the checked-out repo.'
+    required: false
+    default: 'true'
+  gitleaks-version:
+    description: 'gitleaks version to install (without the leading v).'
+    required: false
+    default: '8.18.4'
+  terraform-dir:
+    description: 'Directory containing Terraform code to fmt/validate/scan. Leave empty to skip Terraform checks.'
+    required: false
+    default: ''
+  run-tfsec:
+    description: 'Run tfsec static analysis on terraform-dir.'
+    required: false
+    default: 'true'
+  fail-on-findings:
+    description: 'Fail the job when leaked secrets are detected.'
+    required: false
+    default: 'false'
+
+outputs:
+  secrets-found:
+    description: 'true when gitleaks detected at least one leaked secret.'
+    value: ${{ steps.secrets.outputs.found }}
+  secrets-count:
+    description: 'Number of secret findings reported by gitleaks.'
+    value: ${{ steps.secrets.outputs.count }}
+  report-dir:
+    description: 'Directory containing the generated JSON reports.'
+    value: 'secops-reports'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Prepare report dir
+      shell: bash
+      run: mkdir -p secops-reports
+
+    - name: Secret scan (gitleaks)
+      id: secrets
+      if: ${{ inputs.scan-secrets == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        VER="${{ inputs.gitleaks-version }}"
+        TS="$(date -u +%Y%m%dT%H%M%SZ)"
+        REPORT="secops-reports/gitleaks-${TS}.json"
+        echo "::group::Install gitleaks v${VER}"
+        curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" \
+          | tar -xz -C /tmp gitleaks
+        /tmp/gitleaks version
+        echo "::endgroup::"
+        # --exit-code 0: nao falha aqui; decidimos o fail depois via fail-on-findings.
+        /tmp/gitleaks detect --source . --no-banner --redact \
+          --report-format json --report-path "$REPORT" --exit-code 0
+        COUNT="$(jq 'length' "$REPORT" 2>/dev/null || echo 0)"
+        echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
+        if [ "${COUNT}" -gt 0 ]; then
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "::warning::gitleaks encontrou ${COUNT} possível(is) segredo(s). Veja ${REPORT}."
+        else
+          echo "found=false" >> "$GITHUB_OUTPUT"
+          echo "gitleaks: nenhum segredo encontrado."
+        fi
+
+    - name: Terraform fmt + validate
+      if: ${{ inputs.terraform-dir != '' }}
+      shell: bash
+      working-directory: ${{ inputs.terraform-dir }}
+      run: |
+        set -euo pipefail
+        if ! command -v terraform >/dev/null 2>&1; then
+          echo "::warning::terraform não está no PATH; pule com hashicorp/setup-terraform antes desta action."
+          exit 0
+        fi
+        terraform fmt -check -recursive || echo "::warning::terraform fmt apontou arquivos fora do padrão."
+        terraform init -backend=false
+        terraform validate
+
+    - name: Terraform security scan (tfsec)
+      if: ${{ inputs.terraform-dir != '' && inputs.run-tfsec == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        TS="$(date -u +%Y%m%dT%H%M%SZ)"
+        echo "::group::Install tfsec"
+        curl -sSL https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash || true
+        echo "::endgroup::"
+        if command -v tfsec >/dev/null 2>&1; then
+          tfsec "${{ inputs.terraform-dir }}" --no-color --format json --out "secops-reports/tfsec-${TS}.json" || true
+          tfsec "${{ inputs.terraform-dir }}" --no-color --soft-fail
+        else
+          echo "::warning::tfsec não pôde ser instalado; pulando."
+        fi
+
+    - name: Fail on findings
+      if: ${{ inputs.fail-on-findings == 'true' && steps.secrets.outputs.found == 'true' }}
+      shell: bash
+      run: |
+        echo "::error::Segredos detectados pelo gitleaks (${{ steps.secrets.outputs.count }}). Falhando o job (fail-on-findings=true)."
+        exit 1
